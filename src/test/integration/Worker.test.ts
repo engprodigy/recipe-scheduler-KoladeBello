@@ -3,12 +3,38 @@ import { Device } from '../../entities/Device';
 import { reminderJobHandler } from '../../workerJobHandler';
 import { AppDataSource } from '../../config/database';
 
+// Mock Redis connection
+jest.mock('ioredis', () => {
+  return jest.fn().mockImplementation(() => ({
+    quit: jest.fn().mockResolvedValue(undefined),
+    on: jest.fn(),
+    connect: jest.fn().mockResolvedValue(undefined),
+    disconnect: jest.fn().mockResolvedValue(undefined),
+  }));
+});
+
 // Mock Expo
 jest.mock('expo-server-sdk', () => ({
   Expo: jest.fn().mockImplementation(() => ({
     chunkPushNotifications: jest.fn().mockReturnValue([[]]),
     sendPushNotificationsAsync: jest.fn().mockResolvedValue([])
   }))
+}));
+
+// Create mock Queue instance
+const mockQueueInstance = {
+  add: jest.fn().mockResolvedValue({ id: 'test-job-id' }),
+  close: jest.fn().mockResolvedValue(undefined),
+  getJob: jest.fn().mockResolvedValue({ processedOn: new Date() }),
+};
+
+// Mock BullMQ Queue
+jest.mock('bullmq', () => ({
+  Queue: jest.fn().mockImplementation(() => mockQueueInstance),
+  Worker: jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+    close: jest.fn().mockResolvedValue(undefined),
+  })),
 }));
 
 describe('Worker Integration', () => {
@@ -19,15 +45,15 @@ describe('Worker Integration', () => {
   beforeAll(async () => {
     queue = new Queue('reminder-queue', {
       connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379')
+        host: 'localhost',
+        port: 6379
       }
     });
 
     worker = new Worker('reminder-queue', reminderJobHandler, {
       connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379')
+        host: 'localhost',
+        port: 6379
       }
     });
 

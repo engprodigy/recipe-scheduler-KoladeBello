@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import dotenv from 'dotenv';
 import { reminderJobHandler } from './workerJobHandler';
 import { ReminderJob } from './types/ReminderJob';
+import IORedis from 'ioredis';
 
 dotenv.config();
 
@@ -11,12 +12,15 @@ AppDataSource.initialize()
   .then(() => {
     console.warn('Database connected successfully');
 
+    // Create Redis connection
+    const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false,
+    });
+
     // Create worker
     const worker = new Worker<ReminderJob>('reminder-queue', reminderJobHandler, {
-      connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379')
-      }
+      connection
     });
 
     worker.on('completed', (job) => {

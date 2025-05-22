@@ -1,12 +1,14 @@
 import { Queue } from 'bullmq';
 import { ReminderJob } from '../types/ReminderJob';
+import IORedis from 'ioredis';
 
-const reminderQueue = new Queue<ReminderJob>('reminder-queue', {
-  connection: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379')
-  }
+// Create Redis connection
+const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  maxRetriesPerRequest: null,
+  enableReadyCheck: false,
 });
+
+const reminderQueue = new Queue<ReminderJob>('reminder-queue', { connection });
 
 export class QueueService {
   private static instance: QueueService;
