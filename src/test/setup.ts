@@ -5,6 +5,7 @@ import { Device } from '../entities/Device';
 beforeAll(async () => {
   // Initialize test database
   await AppDataSource.initialize();
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
 beforeEach(async () => {
