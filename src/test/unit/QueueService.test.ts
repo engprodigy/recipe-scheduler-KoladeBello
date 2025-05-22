@@ -2,22 +2,35 @@
 jest.mock('ioredis', () => {
   return jest.fn().mockImplementation(() => ({
     quit: jest.fn().mockResolvedValue(undefined),
+    on: jest.fn(),
+    connect: jest.fn().mockResolvedValue(undefined),
+    disconnect: jest.fn().mockResolvedValue(undefined),
   }));
 });
 
-// Mock the reminderQueue
-jest.mock('../../queues/reminderQueue', () => ({
-  reminderQueue: {
-    add: jest.fn(),
-  },
+// Create mock Queue instance
+const mockQueueInstance = {
+  add: jest.fn().mockResolvedValue({ id: 'test-job-id' }),
+  close: jest.fn().mockResolvedValue(undefined),
+};
+
+// Mock BullMQ Queue
+jest.mock('bullmq', () => ({
+  Queue: jest.fn().mockImplementation(() => mockQueueInstance),
+  Worker: jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+    close: jest.fn().mockResolvedValue(undefined),
+  })),
 }));
 
 import { QueueService } from '../../services/QueueService';
-import { reminderQueue } from '../../queues/reminderQueue';
 
 describe('QueueService', () => {
+  let queueService: QueueService;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    queueService = QueueService.getInstance();
   });
 
   it('should schedule a reminder job', async () => {
@@ -30,13 +43,13 @@ describe('QueueService', () => {
       eventTime: futureDate,
     };
 
-    await QueueService.scheduleReminder(job);
+    await queueService.scheduleReminder(job);
 
-    expect(reminderQueue.add).toHaveBeenCalledWith(
+    expect(mockQueueInstance.add).toHaveBeenCalledWith(
       'reminder',
       job,
       expect.objectContaining({
-        jobId: expect.stringContaining('reminder-user123'),
+        delay: expect.any(Number)
       })
     );
   });
@@ -51,9 +64,9 @@ describe('QueueService', () => {
       eventTime: pastDate,
     };
 
-    await QueueService.scheduleReminder(job);
+    await queueService.scheduleReminder(job);
 
-    expect(reminderQueue.add).not.toHaveBeenCalled();
+    expect(mockQueueInstance.add).not.toHaveBeenCalled();
   });
 
   it('should calculate correct delay for future events', async () => {
@@ -66,14 +79,20 @@ describe('QueueService', () => {
       eventTime: futureDate,
     };
 
-    await QueueService.scheduleReminder(job);
+    await queueService.scheduleReminder(job);
 
-    expect(reminderQueue.add).toHaveBeenCalledWith(
+    expect(mockQueueInstance.add).toHaveBeenCalledWith(
       'reminder',
       job,
       expect.objectContaining({
-        delay: expect.any(Number),
+        delay: expect.any(Number)
       })
     );
+
+    // Verify the delay is approximately correct (within 1 second)
+    const callArgs = mockQueueInstance.add.mock.calls[0];
+    const delay = callArgs[2].delay;
+    const expectedDelay = futureDate.getTime() - Date.now() - (30 * 60 * 1000); // 30 minutes before event
+    expect(Math.abs(delay - expectedDelay)).toBeLessThan(1000);
   });
 }); 

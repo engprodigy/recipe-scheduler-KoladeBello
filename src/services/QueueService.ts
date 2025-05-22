@@ -1,41 +1,40 @@
 import { Queue } from 'bullmq';
-import IORedis from 'ioredis';
-import dotenv from 'dotenv';
+import { ReminderJob } from '../types/ReminderJob';
 
-dotenv.config();
-
-import { reminderQueue } from '../queues/reminderQueue';
-
-const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null,
-  enableReadyCheck: false
+const reminderQueue = new Queue<ReminderJob>('reminder-queue', {
+  connection: {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379')
+  }
 });
 
-export interface ReminderJob {
-  userId: string;
-  title: string;
-  eventTime: Date;
-}
-
 export class QueueService {
-  static async scheduleReminder(job: ReminderJob) {
-    const leadMinutes = parseInt(process.env.REMINDER_LEAD_MINUTES || '30', 10);
-    const reminderTime = new Date(job.eventTime);
-    reminderTime.setMinutes(reminderTime.getMinutes() - leadMinutes);
+  private static instance: QueueService;
+  private reminderQueue: Queue<ReminderJob>;
 
-    // If the reminder time is in the past, don't schedule
+  private constructor() {
+    this.reminderQueue = reminderQueue;
+  }
+
+  public static getInstance(): QueueService {
+    if (!QueueService.instance) {
+      QueueService.instance = new QueueService();
+    }
+    return QueueService.instance;
+  }
+
+  public async scheduleReminder(job: ReminderJob): Promise<void> {
+    const reminderTime = new Date(job.eventTime);
+    reminderTime.setMinutes(reminderTime.getMinutes() - (parseInt(process.env.REMINDER_LEAD_MINUTES || '30')));
+
     if (reminderTime <= new Date()) {
-      console.log('Reminder time is in the past, skipping job');
+      console.warn('Reminder time is in the past, skipping job:', job);
       return;
     }
 
-    const delay = reminderTime.getTime() - Date.now();
-
-    await reminderQueue.add('reminder', job, {
-      delay,
-      jobId: `reminder-${job.userId}-${job.eventTime.toISOString()}`,
+    await this.reminderQueue.add('reminder', job, {
+      delay: reminderTime.getTime() - Date.now()
     });
-
-    console.log(`Scheduled reminder for ${job.title} at ${reminderTime.toISOString()}`);
+    console.warn('Scheduled reminder for:', reminderTime);
   }
 } 

@@ -6,7 +6,7 @@ import { validate } from 'class-validator';
 const deviceRepository = AppDataSource.getRepository(Device);
 
 export class DeviceController {
-  async registerDevice(req: Request, res: Response) {
+  public async registerDevice(req: Request, res: Response): Promise<Response> {
     try {
       const { userId, pushToken } = req.body;
       const device = new Device();
@@ -21,7 +21,7 @@ export class DeviceController {
       const savedDevice = await deviceRepository.save(device);
       return res.status(201).json(savedDevice);
     } catch (error) {
-      return res.status(500).json({ message: 'Internal server error' });
+      return res.status(500).json({ error: 'Failed to register device' });
     }
   }
 } 

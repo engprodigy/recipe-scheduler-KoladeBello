@@ -7,7 +7,7 @@ import { QueueService } from '../services/QueueService';
 const eventRepository = AppDataSource.getRepository(Event);
 
 export class EventController {
-  async createEvent(req: Request, res: Response) {
+  public async createEvent(req: Request, res: Response): Promise<Response> {
     try {
       const { title, eventTime, userId } = req.body;
       const event = new Event();
@@ -23,7 +23,8 @@ export class EventController {
       const savedEvent = await eventRepository.save(event);
       
       // Schedule reminder
-      await QueueService.scheduleReminder({
+      const queueService = QueueService.getInstance();
+      await queueService.scheduleReminder({
         userId: savedEvent.userId,
         title: savedEvent.title,
         eventTime: savedEvent.eventTime,
@@ -31,11 +32,11 @@ export class EventController {
 
       return res.status(201).json(savedEvent);
     } catch (error) {
-      return res.status(500).json({ message: 'Internal server error' });
+      return res.status(500).json({ error: 'Failed to create event' });
     }
   }
 
-  async getEvents(req: Request, res: Response) {
+  public async getEvents(req: Request, res: Response): Promise<Response> {
     try {
       const { userId } = req.query;
       const events = await eventRepository.find({
@@ -44,18 +45,18 @@ export class EventController {
       });
       return res.json(events);
     } catch (error) {
-      return res.status(500).json({ message: 'Internal server error' });
+      return res.status(500).json({ error: 'Failed to fetch events' });
     }
   }
 
-  async updateEvent(req: Request, res: Response) {
+  public async updateEvent(req: Request, res: Response): Promise<Response> {
     try {
       const { id } = req.params;
       const { title, eventTime } = req.body;
       
       const event = await eventRepository.findOne({ where: { id } });
       if (!event) {
-        return res.status(404).json({ message: 'Event not found' });
+        return res.status(404).json({ error: 'Event not found' });
       }
 
       if (title) event.title = title;
@@ -69,7 +70,8 @@ export class EventController {
       const updatedEvent = await eventRepository.save(event);
 
       // Reschedule reminder
-      await QueueService.scheduleReminder({
+      const queueService = QueueService.getInstance();
+      await queueService.scheduleReminder({
         userId: updatedEvent.userId,
         title: updatedEvent.title,
         eventTime: updatedEvent.eventTime,
@@ -77,23 +79,23 @@ export class EventController {
 
       return res.json(updatedEvent);
     } catch (error) {
-      return res.status(500).json({ message: 'Internal server error' });
+      return res.status(500).json({ error: 'Failed to update event' });
     }
   }
 
-  async deleteEvent(req: Request, res: Response) {
+  public async deleteEvent(req: Request, res: Response): Promise<Response> {
     try {
       const { id } = req.params;
       const event = await eventRepository.findOne({ where: { id } });
       
       if (!event) {
-        return res.status(404).json({ message: 'Event not found' });
+        return res.status(404).json({ error: 'Event not found' });
       }
 
       await eventRepository.remove(event);
       return res.status(204).send();
     } catch (error) {
-      return res.status(500).json({ message: 'Internal server error' });
+      return res.status(500).json({ error: 'Failed to delete event' });
     }
   }
 } 

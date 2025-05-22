@@ -2,15 +2,24 @@ import request from 'supertest';
 import express from 'express';
 import { AppDataSource } from '../../config/database';
 import { EventController } from '../../controllers/EventController';
-import { QueueService } from '../../services/QueueService';
 import { Event } from '../../entities/Event';
+import { QueueService } from '../../services/QueueService';
 
 // Mock QueueService
-jest.mock('../../services/QueueService', () => ({
-  QueueService: {
-    scheduleReminder: jest.fn(),
-  },
-}));
+jest.mock('../../services/QueueService', () => {
+  const mockScheduleReminder = jest.fn().mockImplementation(() => Promise.resolve());
+  return {
+    QueueService: {
+      getInstance: jest.fn().mockReturnValue({
+        scheduleReminder: mockScheduleReminder
+      })
+    }
+  };
+});
+
+// Get the mock function for assertions
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockScheduleReminder = (QueueService.getInstance() as any).scheduleReminder;
 
 describe('Event Controller Integration', () => {
   let app: express.Application;
@@ -43,7 +52,7 @@ describe('Event Controller Integration', () => {
     expect(response.body).toHaveProperty('id');
     expect(response.body.title).toBe(eventData.title);
     expect(response.body.userId).toBe(eventData.userId);
-    expect(QueueService.scheduleReminder).toHaveBeenCalled();
+    expect(mockScheduleReminder).toHaveBeenCalled();
 
     // Verify event was saved in database
     const savedEvent = await AppDataSource.getRepository(Event).findOne({
@@ -66,6 +75,6 @@ describe('Event Controller Integration', () => {
       .expect(400);
 
     expect(response.body).toHaveProperty('errors');
-    expect(QueueService.scheduleReminder).not.toHaveBeenCalled();
+    expect(mockScheduleReminder).not.toHaveBeenCalled();
   });
 }); 
