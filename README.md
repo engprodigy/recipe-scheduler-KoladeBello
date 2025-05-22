@@ -128,6 +128,32 @@ npm run worker
    docker-compose down
    ```
 
+### GitHub Actions CI/CD
+
+The project includes a GitHub Actions workflow that automates testing, linting, and deployment:
+
+1. **Test Job** (runs on every push and pull request):
+   - Sets up Redis service container
+   - Installs Node.js 20
+   - Runs tests with Jest
+   - Runs ESLint
+   - Builds the application
+
+2. **Docker Job** (runs only on pushes to main):
+   - Builds multi-architecture Docker images (linux/amd64 + linux/arm64)
+   - Pushes to DockerHub with both latest and commit-specific tags
+
+To set up GitHub Actions:
+
+1. Push your code to GitHub
+2. Add these secrets to your repository:
+   - `DOCKERHUB_USERNAME`: Your DockerHub username
+   - `DOCKERHUB_TOKEN`: Your DockerHub access token
+
+The workflow will automatically:
+- Run tests and linting on every PR
+- Build and push Docker images on pushes to main
+
 ### Multi-architecture Build
 
 To build for multiple architectures:
@@ -158,3 +184,57 @@ The service uses Expo's push notification service to send reminders. When an eve
 2. The worker process picks up the job at the appropriate time
 3. Push notifications are sent to all registered devices for the user
 4. If the Expo service is unavailable, notifications are logged for display in the app 
+
+### Testing Push Notifications
+
+To test push notifications locally:
+
+1. **Install Expo Go**:
+   - iOS: [App Store](https://apps.apple.com/app/expo-go/id982107779)
+   - Android: [Play Store](https://play.google.com/store/apps/details?id=host.exp.exponent)
+
+2. **Get a Push Token**:
+   ```javascript
+   // In your Expo app
+   import * as Notifications from 'expo-notifications';
+   
+   async function registerForPushNotifications() {
+     const { status } = await Notifications.requestPermissionsAsync();
+     if (status !== 'granted') {
+       alert('Failed to get push token for push notification!');
+       return;
+     }
+     
+     const token = (await Notifications.getExpoPushTokenAsync()).data;
+     console.log('Push token:', token);
+     // Send this token to your server using the /api/devices endpoint
+   }
+   ```
+
+3. **Register the Token**:
+   ```bash
+   curl -X POST http://localhost:3000/api/devices \
+     -H "Content-Type: application/json" \
+     -d '{
+       "userId": "test-user",
+       "pushToken": "ExponentPushToken[your-token-here]"
+     }'
+   ```
+
+4. **Create a Test Event**:
+   ```bash
+   curl -X POST http://localhost:3000/api/events \
+     -H "Content-Type: application/json" \
+     -d '{
+       "title": "Test Cooking Event",
+       "eventTime": "2024-03-20T15:00:00Z",
+       "userId": "test-user"
+     }'
+   ```
+
+The notification will be sent 30 minutes before the event time (configurable via `REMINDER_LEAD_MINUTES`).
+
+Note: For production use, you'll need to:
+1. Create an Expo account
+2. Generate an access token in your Expo dashboard
+3. Add the token to your environment variables as `EXPO_ACCESS_TOKEN` 
