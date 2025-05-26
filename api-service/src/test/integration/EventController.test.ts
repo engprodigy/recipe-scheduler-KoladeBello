@@ -44,7 +44,7 @@ describe('Event Controller Integration', () => {
     it('should create a new event successfully', async () => {
       const eventData = {
         title: 'Test Cooking Event',
-        eventTime: '2024-03-20T19:00:00Z',
+        eventTime: new Date(Date.now() + 3600000).toISOString(), // 1 hour in the future
         userId: 'user123',
       };
 
@@ -79,6 +79,22 @@ describe('Event Controller Integration', () => {
         .expect(400);
 
       expect(response.body).toHaveProperty('errors');
+      expect(mockScheduleReminder).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 for past event time', async () => {
+      const pastEventData = {
+        title: 'Past Event',
+        eventTime: new Date(Date.now() - 30000).toISOString(), // 30 seconds in the past
+        userId: 'user123',
+      };
+
+      const response = await request(app)
+        .post('/api/events')
+        .send(pastEventData)
+        .expect(400);
+
+      expect(response.body).toHaveProperty('error', 'Cannot create events in the past');
       expect(mockScheduleReminder).not.toHaveBeenCalled();
     });
   });
