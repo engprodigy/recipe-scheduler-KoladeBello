@@ -35,7 +35,9 @@ jobs:
       with:
         node-version: '20'
         cache: 'npm'
-        cache-dependency-path: worker-service/package-lock.json
+        cache-dependency-path: |
+          worker-service/package-lock.json
+          worker-service/package.json
 
     - name: Install dependencies
       working-directory: worker-service
