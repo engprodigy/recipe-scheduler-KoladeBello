@@ -10,9 +10,21 @@ export class EventController {
   public async createEvent(req: Request, res: Response): Promise<Response> {
     try {
       const { title, eventTime, userId } = req.body;
+      const eventDate = new Date(eventTime);
+      const now = new Date();
+      const twentySecondsAgo = new Date(now.getTime() - 20000); // 20 seconds ago
+
+      // Check if event time is more than 20 seconds in the past
+      if (eventDate < twentySecondsAgo) {
+        return res.status(400).json({ 
+          error: 'Cannot create events in the past',
+          details: 'Event time must be in the future or within the last 20 seconds'
+        });
+      }
+
       const event = new Event();
       event.title = title;
-      event.eventTime = new Date(eventTime);
+      event.eventTime = eventDate;
       event.userId = userId;
 
       const errors = await validate(event);
