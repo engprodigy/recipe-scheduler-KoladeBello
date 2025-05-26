@@ -1,6 +1,87 @@
-# Cooking Events Microservice
+# Cooking Event Services
 
-A Node.js + TypeScript microservice for scheduling cooking events with push notification support.
+A monorepo containing microservices for managing cooking events.
+
+## Services
+
+### API Service
+- Handles HTTP requests for events and devices
+- Manages the main application database
+- Exposes REST endpoints for CRUD operations
+
+### Worker Service
+- Processes background jobs and notifications
+- Manages its own database for job tracking
+- Handles push notifications to devices
+
+### Shared Types
+- Contains shared TypeScript interfaces
+- Used for type-safe communication between services
+
+## Setup
+
+1. Install dependencies:
+```bash
+npm install
+```
+
+2. Create `.env` files in both service directories with the following variables:
+```
+# API Service (.env)
+API_DATABASE_NAME=api_cooking_events.db
+
+# Worker Service (.env)
+WORKER_DATABASE_NAME=worker_cooking_events.db
+REDIS_URL=redis://localhost:6379
+```
+
+3. Start the services:
+```bash
+# Development mode
+npm run dev:api
+npm run dev:worker
+
+# Production mode
+npm run start:api
+npm run start:worker
+```
+
+## Testing
+
+The project includes comprehensive test suites for both the API and Worker services. To run the tests:
+
+```bash
+# Run all tests
+npm test
+
+# Run API service tests only
+npm run test:api
+
+# Run Worker service tests only
+npm run test:worker
+```
+
+The test suites include:
+- Unit tests for individual components
+- Integration tests for API endpoints
+- Queue service tests for background job processing
+
+Each service has its own test configuration and setup files:
+- `api-service/jest.config.js` - API service test configuration
+- `worker-service/jest.config.js` - Worker service test configuration
+- `api-service/src/test/setup.ts` - API service test setup
+- `worker-service/src/test/setup.ts` - Worker service test setup
+
+## Project Structure
+```
+CookingEventServices/
+├── api-service/        # REST API service
+│   └── src/
+│       └── types/     # Shared TypeScript interfaces
+└── worker-service/     # Background job processor
+    └── src/
+        └── types/     # Shared TypeScript interfaces
+```
 
 ## Features
 
@@ -56,7 +137,7 @@ The reminder worker runs as a separate process to:
 
 ## Setup
 
-### Local Development
+<!-- ### Local Development
 
 1. Install dependencies:
    ```bash
@@ -99,7 +180,7 @@ npm run dev
 
 # Terminal 2
 npm run worker
-```
+``` -->
 
 ### Docker Deployment
 
@@ -158,83 +239,4 @@ The workflow will automatically:
 
 To build for multiple architectures:
 
-```bash
-# Build for both architectures
-docker buildx build --platform linux/amd64,linux/arm64 -t your-registry/cooking-events:latest .
-
-# Push to registry
-docker buildx build --platform linux/amd64,linux/arm64 -t your-registry/cooking-events:latest --push .
 ```
-
-## Environment Variables
-
-- `PORT` - Server port (default: 3000)
-- `REDIS_URL` - Redis connection URL (default: redis://localhost:6379)
-- `REMINDER_LEAD_MINUTES` - Minutes before event to send reminder (default: 30)
-- `EXPO_ACCESS_TOKEN` - Expo push notification access token
-
-## Database
-
-The service uses SQLite with TypeORM. The database file will be created automatically at `cooking_events.db`.
-
-## Push Notifications
-
-The service uses Expo's push notification service to send reminders. When an event is created or updated:
-1. A reminder job is scheduled in Redis
-2. The worker process picks up the job at the appropriate time
-3. Push notifications are sent to all registered devices for the user
-4. If the Expo service is unavailable, notifications are logged for display in the app 
-
-### Testing Push Notifications
-
-To test push notifications locally:
-
-1. **Install Expo Go**:
-   - iOS: [App Store](https://apps.apple.com/app/expo-go/id982107779)
-   - Android: [Play Store](https://play.google.com/store/apps/details?id=host.exp.exponent)
-
-2. **Get a Push Token**:
-   ```javascript
-   // In your Expo app
-   import * as Notifications from 'expo-notifications';
-   
-   async function registerForPushNotifications() {
-     const { status } = await Notifications.requestPermissionsAsync();
-     if (status !== 'granted') {
-       alert('Failed to get push token for push notification!');
-       return;
-     }
-     
-     const token = (await Notifications.getExpoPushTokenAsync()).data;
-     console.log('Push token:', token);
-     // Send this token to your server using the /api/devices endpoint
-   }
-   ```
-
-3. **Register the Token**:
-   ```bash
-   curl -X POST http://localhost:3000/api/devices \
-     -H "Content-Type: application/json" \
-     -d '{
-       "userId": "test-user",
-       "pushToken": "ExponentPushToken[your-token-here]"
-     }'
-   ```
-
-4. **Create a Test Event**:
-   ```bash
-   curl -X POST http://localhost:3000/api/events \
-     -H "Content-Type: application/json" \
-     -d '{
-       "title": "Test Cooking Event",
-       "eventTime": "2024-03-20T15:00:00Z",
-       "userId": "test-user"
-     }'
-   ```
-
-The notification will be sent 30 minutes before the event time (configurable via `REMINDER_LEAD_MINUTES`).
-
-Note: For production use, you'll need to:
-1. Create an Expo account
-2. Generate an access token in your Expo dashboard
-3. Add the token to your environment variables as `EXPO_ACCESS_TOKEN` 
