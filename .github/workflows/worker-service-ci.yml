@@ -35,19 +35,19 @@ jobs:
       with:
         node-version: '20'
 
-    # - name: Cache npm dependencies
-    #   uses: actions/cache@v3
-    #   id: npm-cache
-    #   with:
-    #     path: |
-    #       worker-service/node_modules
-    #       ~/.npm
-    #     key: ${{ runner.os }}-npm-${{ hashFiles('worker-service/package-lock.json') }}
-    #     restore-keys: |
-    #       ${{ runner.os }}-npm-
+    - name: Create npm cache directory
+      run: mkdir -p ~/.npm
+
+    - name: Cache npm dependencies
+      uses: actions/cache@v3
+      id: npm-cache
+      with:
+        path: worker-service/node_modules
+        key: ${{ runner.os }}-npm-${{ hashFiles('worker-service/package-lock.json') }}
 
     - name: Install dependencies
       working-directory: worker-service
+      if: steps.npm-cache.outputs.cache-hit != 'true'
       run: npm ci
 
     - name: Run tests
