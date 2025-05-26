@@ -18,7 +18,7 @@ jest.mock('../../services/QueueService', () => {
 });
 
 // Get the mock function for assertions
-const mockScheduleReminder = (QueueService.getInstance() as any).scheduleReminder;
+const mockScheduleReminder = ((QueueService.getInstance() as unknown) as { scheduleReminder: jest.Mock }).scheduleReminder;
 
 describe('Event Controller Integration', () => {
   let app: express.Application;
